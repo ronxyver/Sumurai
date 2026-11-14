@@ -1,0 +1,27 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Sumurai: compile",
+      "type": "shell",
+      "command": "$ErrorActionPreference = 'Stop'; New-Item -ItemType Directory -Force -Path 'out' | Out-Null; $sources = Get-ChildItem -Path 'src\\com\\sumurai' -Recurse -Filter '*.java' | ForEach-Object { $_.FullName }; & javac -encoding UTF-8 -d 'out' $sources; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "shell": {
+          "executable": "powershell.exe",
+          "args": [
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command"
+          ]
+        }
+      },
+      "problemMatcher": "$javac",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ]
+}

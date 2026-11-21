@@ -126,16 +126,19 @@ public final class UserRepository {
             }
             String[] fields = line.split("\\t", -1);
             try {
-                if (fields.length != 8) {
-                    throw new IllegalArgumentException("Expected 8 tab-separated fields.");
+                if (fields.length != 8 && fields.length != 9) {
+                    throw new IllegalArgumentException("Expected 8 or 9 tab-separated fields.");
                 }
                 BattleStats stats = new BattleStats(
                         Integer.parseInt(fields[4]),
                         Integer.parseInt(fields[5]),
                         Integer.parseInt(fields[6]),
                         Integer.parseInt(fields[7]));
+                int savedLevel = Integer.parseInt(fields[2]);
                 UserProfile profile = new UserProfile(
-                        fields[0], fields[1], Integer.parseInt(fields[2]), Long.parseLong(fields[3]), stats);
+                        fields[0], fields[1],
+                        Math.min(savedLevel, UserProfile.MAX_PLAYER_LEVEL), Long.parseLong(fields[3]),
+                        stats, fields.length == 9 ? Integer.parseInt(fields[8]) : 1);
                 if (profiles.put(profile.getUsername(), profile) != null) {
                     throw new IllegalArgumentException("Duplicate username.");
                 }
@@ -153,7 +156,8 @@ public final class UserRepository {
             lines.add(profile.getUsername() + "\t" + profile.getPasswordHash() + "\t"
                     + profile.getLevel() + "\t" + profile.getExperience() + "\t"
                     + stats.getBattlesPlayed() + "\t" + stats.getWins() + "\t"
-                    + stats.getLosses() + "\t" + stats.getCorrectAnswers());
+                    + stats.getLosses() + "\t" + stats.getCorrectAnswers() + "\t"
+                    + profile.getHighestUnlockedStage());
         }
         Files.write(dataFile, lines, StandardCharsets.UTF_8);
     }

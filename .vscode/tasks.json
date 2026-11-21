@@ -4,7 +4,7 @@
     {
       "label": "Sumurai: compile",
       "type": "shell",
-      "command": "$ErrorActionPreference = 'Stop'; New-Item -ItemType Directory -Force -Path 'out' | Out-Null; $sources = Get-ChildItem -Path 'src\\com\\sumurai' -Recurse -Filter '*.java' | ForEach-Object { $_.FullName }; & javac -encoding UTF-8 -d 'out' $sources; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }",
+      "command": "$ErrorActionPreference = 'Stop'; New-Item -ItemType Directory -Force -Path 'out' | Out-Null; New-Item -ItemType Directory -Force -Path 'out\\images' | Out-Null; Copy-Item -Recurse -Force 'assets\\images\\*' 'out\\images'; $sources = Get-ChildItem -Path 'src\\com\\sumurai' -Recurse -Filter '*.java' | ForEach-Object { $_.FullName }; & javac -encoding UTF-8 -d 'out' $sources; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }",
       "options": {
         "cwd": "${workspaceFolder}",
         "shell": {
@@ -22,6 +22,26 @@
         "kind": "build",
         "isDefault": true
       }
+    },
+    {
+      "label": "Sumurai: test battle",
+      "type": "shell",
+      "command": "$ErrorActionPreference = 'Stop'; $testSources = Get-ChildItem -Path 'tests\\com\\sumurai' -Recurse -Filter '*.java' | ForEach-Object { $_.FullName }; & javac -encoding UTF-8 -cp 'out' -d 'out' $testSources; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & java -cp 'out' com.sumurai.Test; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }",
+      "dependsOn": "Sumurai: compile",
+      "dependsOrder": "sequence",
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "shell": {
+          "executable": "powershell.exe",
+          "args": [
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command"
+          ]
+        }
+      },
+      "problemMatcher": "$javac"
     }
   ]
 }

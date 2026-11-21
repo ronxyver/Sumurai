@@ -3,6 +3,13 @@
   "configurations": [
     {
       "type": "java",
+      "name": "Test",
+      "request": "launch",
+      "mainClass": "Test",
+      "projectName": "Sumurai_82a01978"
+    },
+    {
+      "type": "java",
       "name": "Sumurai",
       "request": "launch",
       "mainClass": "com.sumurai.Main",

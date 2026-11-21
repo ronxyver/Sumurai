@@ -57,13 +57,19 @@ public abstract class GameCharacter {
             throw new IllegalArgumentException("Healing cannot be negative.");
         }
         int oldHealth = health;
-        health = Math.min(maxHealth, health + amount);
+        int healedHealth = amount >= maxHealth - health
+                ? maxHealth
+                : health + amount;
+        health = healedHealth;
         return health - oldHealth;
     }
 
     public void addShield(int amount) {
         if (amount < 0) {
             throw new IllegalArgumentException("Shield cannot be negative.");
+        }
+        if (amount > Integer.MAX_VALUE - shieldPoints) {
+            throw new IllegalArgumentException("Shield points overflow.");
         }
         shieldPoints += amount;
     }

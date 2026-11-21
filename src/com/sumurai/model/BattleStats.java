@@ -12,7 +12,7 @@ public final class BattleStats {
 
     public BattleStats(int battlesPlayed, int wins, int losses, int correctAnswers) {
         if (battlesPlayed < 0 || wins < 0 || losses < 0 || correctAnswers < 0
-                || wins + losses > battlesPlayed) {
+                || (long) wins + losses > battlesPlayed) {
             throw new IllegalArgumentException("Invalid battle statistics.");
         }
         this.battlesPlayed = battlesPlayed;

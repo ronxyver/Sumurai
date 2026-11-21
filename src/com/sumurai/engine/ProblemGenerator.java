@@ -4,6 +4,7 @@ package com.sumurai.engine;
 import com.sumurai.model.Difficulty;
 import com.sumurai.model.MathProblem;
 import com.sumurai.model.OperationType;
+import com.sumurai.model.UserProfile;
 
 import java.util.Objects;
 import java.util.Random;
@@ -21,7 +22,18 @@ public final class ProblemGenerator {
 
     public MathProblem generate(Difficulty difficulty) {
         Objects.requireNonNull(difficulty, "difficulty");
-        int max = difficulty.getMaxOperand();
+        return generateWithMaximum(difficulty.getMaxOperand());
+    }
+
+    public MathProblem generateForLevel(int level) {
+        if (level < 1 || level > UserProfile.MAX_JOURNEY_STAGE) {
+            throw new IllegalArgumentException("Level must be between 1 and "
+                    + UserProfile.MAX_JOURNEY_STAGE + ".");
+        }
+        return generateWithMaximum(level * 10);
+    }
+
+    private MathProblem generateWithMaximum(int max) {
         OperationType operation = OperationType.values()[random.nextInt(OperationType.values().length)];
         int left;
         int right;

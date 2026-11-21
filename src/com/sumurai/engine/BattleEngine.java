@@ -15,6 +15,7 @@ import com.sumurai.model.Opponent;
 import com.sumurai.model.Player;
 import com.sumurai.model.Shield;
 import com.sumurai.model.SpecialAttack;
+import com.sumurai.model.UserProfile;
 
 import java.util.Objects;
 
@@ -29,6 +30,9 @@ public final class BattleEngine {
     private int bonusDamageTurns;
     private int reducedOpponentDamage;
     private int reducedOpponentDamageTurns;
+    private int battleLevel = 1;
+    private boolean levelScaledQuestions;
+    private boolean progressionBattle;
     private boolean battleRecorded;
 
     public BattleEngine(ProblemGenerator problemGenerator) {
@@ -36,8 +40,31 @@ public final class BattleEngine {
     }
 
     public MathProblem startBattle(Player player, Opponent opponent) {
+        return startBattle(player, opponent, 1, false, false);
+    }
+
+    public MathProblem startBattle(Player player, Opponent opponent, int level) {
+        return startBattle(player, opponent, level, true, true);
+    }
+
+    public MathProblem startPracticeBattle(Player player, Opponent opponent, int level) {
+        return startBattle(player, opponent, level, false, true);
+    }
+
+    private MathProblem startBattle(Player player, Opponent opponent, int level,
+                                    boolean progressionBattle, boolean levelScaledQuestions) {
+        if (level < 1 || level > UserProfile.MAX_JOURNEY_STAGE) {
+            throw new IllegalArgumentException("Level must be between 1 and "
+                    + UserProfile.MAX_JOURNEY_STAGE + ".");
+        }
         this.player = Objects.requireNonNull(player, "player");
         this.opponent = Objects.requireNonNull(opponent, "opponent");
+        if (level > player.getProfile().getHighestUnlockedStage()) {
+            throw new IllegalArgumentException("That stage is locked.");
+        }
+        this.battleLevel = level;
+        this.progressionBattle = progressionBattle;
+        this.levelScaledQuestions = levelScaledQuestions;
         this.turns = 0;
         this.bonusDamage = 0;
         this.bonusDamageTurns = 0;
@@ -45,13 +72,14 @@ public final class BattleEngine {
         this.reducedOpponentDamageTurns = 0;
         this.battleRecorded = false;
         this.outcome = BattleOutcome.IN_PROGRESS;
-        this.currentProblem = problemGenerator.generate(opponent.getDifficulty());
+        this.currentProblem = generateNextProblem();
         return currentProblem;
     }
 
     public BattleOutcome submitAnswer(String answer, Move move) throws InvalidAnswerException {
         ensureBattleActive();
         Objects.requireNonNull(move, "move");
+        validateMove(move);
         final int numericAnswer;
         try {
             numericAnswer = Integer.parseInt(answer == null ? "" : answer.trim());
@@ -74,7 +102,7 @@ public final class BattleEngine {
         } else if (!opponent.isAlive()) {
             finish(BattleOutcome.PLAYER_WON);
         } else {
-            currentProblem = problemGenerator.generate(opponent.getDifficulty());
+            currentProblem = generateNextProblem();
         }
         return outcome;
     }
@@ -107,7 +135,9 @@ public final class BattleEngine {
 
     private void applyMove(Move move) {
         if (move instanceof BasicAttack || move instanceof SpecialAttack) {
-            int damage = move.getPower() + (bonusDamageTurns > 0 ? bonusDamage : 0);
+            long totalDamage = (long) move.getPower()
+                    + (bonusDamageTurns > 0 ? bonusDamage : 0);
+            int damage = (int) Math.min(Integer.MAX_VALUE, totalDamage);
             opponent.takeDamage(damage);
             reduceBonusDuration();
         } else if (move instanceof Heal) {
@@ -128,7 +158,8 @@ public final class BattleEngine {
     }
 
     private void attack(GameCharacter target, int baseDamage) {
-        int damage = baseDamage;
+        double damageMultiplier = 1.0 + (battleLevel - 1) * 0.02;
+        int damage = (int) Math.round(baseDamage * damageMultiplier);
         if (reducedOpponentDamageTurns > 0) {
             damage = Math.max(1, damage - reducedOpponentDamage);
         }
@@ -147,12 +178,21 @@ public final class BattleEngine {
         }
     }
 
+    private MathProblem generateNextProblem() {
+        return levelScaledQuestions
+                ? problemGenerator.generateForLevel(battleLevel)
+                : problemGenerator.generate(opponent.getDifficulty());
+    }
+
     private void finish(BattleOutcome finalOutcome) {
         outcome = finalOutcome;
         if (!battleRecorded) {
             player.getProfile().getStats().recordBattle(finalOutcome);
             if (finalOutcome == BattleOutcome.PLAYER_WON) {
                 player.getProfile().addExperience(25);
+                if (progressionBattle) {
+                    player.getProfile().recordStageVictory(battleLevel);
+                }
             }
             battleRecorded = true;
         }
@@ -161,6 +201,17 @@ public final class BattleEngine {
     private void ensureBattleActive() {
         if (player == null || opponent == null || outcome != BattleOutcome.IN_PROGRESS) {
             throw new IllegalStateException("There is no active battle.");
+        }
+    }
+
+    private void validateMove(Move move) {
+        if (!(move instanceof BasicAttack)
+                && !(move instanceof SpecialAttack)
+                && !(move instanceof Heal)
+                && !(move instanceof Shield)
+                && !(move instanceof Buff)
+                && !(move instanceof Debuff)) {
+            throw new IllegalArgumentException("Unsupported move type: " + move.getClass().getName());
         }
     }
 }

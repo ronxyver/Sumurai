@@ -7,6 +7,8 @@ import com.sumurai.model.Apprentice;
 import com.sumurai.model.BattleOutcome;
 import com.sumurai.model.Opponent;
 import com.sumurai.model.Player;
+import com.sumurai.model.Ronin;
+import com.sumurai.model.Shogun;
 import com.sumurai.model.UserProfile;
 import com.sumurai.storage.BattleHistoryRepository;
 import com.sumurai.storage.UserRepository;
@@ -39,6 +41,10 @@ public final class GameWindow extends JFrame {
     private final BattleHistoryRepository historyRepository;
     private UserProfile currentProfile;
     private BattleEngine currentBattle;
+    private int currentBattleLevel = 1;
+    private boolean currentBattleProgression;
+    private boolean currentBattleLevelScaled;
+    private boolean completedBattleSaved;
 
     public GameWindow(UserRepository users, BattleHistoryRepository history) {
         super("SUMURAI");
@@ -60,9 +66,11 @@ public final class GameWindow extends JFrame {
     public void showHome(UserProfile profile) {
         this.currentProfile = profile;
         showCard(HOME, new HomePanel(profile,
-                () -> showBattle(new Apprentice()),
+                level -> startJourneyBattle(level, false),
+                () -> startJourneyBattle(profile.getHighestUnlockedStage(), true),
                 this::showDashboard,
-                this::showLeaderboard));
+                this::showLeaderboard,
+                this::showBattleHistory));
     }
 
     public void showBattle(UserProfile profile, Opponent opponent) {
@@ -71,14 +79,34 @@ public final class GameWindow extends JFrame {
     }
 
     public void showResults(BattleOutcome outcome) {
-        if (currentProfile == null || currentBattle == null || outcome == BattleOutcome.IN_PROGRESS) {
+        showResults(outcome, new BattleResultMetrics(0, 0, 0, 0, 0));
+    }
+
+    private void showResults(BattleOutcome outcome, BattleResultMetrics metrics) {
+        if (currentProfile == null || currentBattle == null || outcome == BattleOutcome.IN_PROGRESS
+                || currentBattle.getOutcome() != outcome) {
             throw new IllegalStateException("A completed battle is required to show results.");
         }
-        saveCompletedBattle(outcome);
-        showCard(RESULT, new ResultPanel(outcome, currentProfile.getStats(),
+        if (!completedBattleSaved) {
+            saveCompletedBattle(outcome);
+        }
+        int nextLevel = currentBattleLevel + 1;
+        boolean canAdvance = outcome == BattleOutcome.PLAYER_WON
+                && currentBattleLevel < UserProfile.MAX_JOURNEY_STAGE
+                && currentProfile.getHighestUnlockedStage() > currentBattleLevel;
+        showCard(RESULT, new ResultPanel(outcome, currentProfile.getStats(), metrics,
+                () -> {
+                    if (canAdvance) {
+                        startJourneyBattle(nextLevel, false);
+                    } else if (outcome == BattleOutcome.OPPONENT_WON) {
+                        launchBattle(currentBattle.getOpponent(), currentBattleLevel,
+                                currentBattleProgression, currentBattleLevelScaled);
+                    }
+                },
+                () -> launchBattle(currentBattle.getOpponent(), currentBattleLevel,
+                        currentBattleProgression, currentBattleLevelScaled),
                 () -> showHome(currentProfile),
-                this::showDashboard,
-                this::showLeaderboard));
+                canAdvance));
     }
 
     private void showBattle(Opponent opponent) {
@@ -89,10 +117,55 @@ public final class GameWindow extends JFrame {
         if (currentProfile == null) {
             throw new IllegalStateException("Choose a player before starting a battle.");
         }
+        launchBattle(opponent, 1, false, false);
+    }
+
+    private void startJourneyBattle(int level, boolean practice) {
+        if (currentProfile == null) {
+            throw new IllegalStateException("Choose a player before starting a battle.");
+        }
+        if (level < 1 || level > UserProfile.MAX_JOURNEY_STAGE
+                || level > currentProfile.getHighestUnlockedStage()) {
+            throw new IllegalArgumentException("That stage is locked.");
+        }
+        launchBattle(opponentForLevel(level), level, !practice, true);
+    }
+
+    private void launchBattle(Opponent opponent, int level, boolean progression,
+                              boolean levelScaledQuestions) {
+        if (currentProfile == null) {
+            throw new IllegalStateException("Choose a player before starting a battle.");
+        }
+        completedBattleSaved = false;
+        currentBattleLevel = level;
+        currentBattleProgression = progression;
+        currentBattleLevelScaled = levelScaledQuestions;
         Player player = new Player(currentProfile, 100);
         currentBattle = new BattleEngine(new ProblemGenerator());
-        currentBattle.startBattle(player, opponent);
-        showCard(BATTLE, new BattlePanel(currentBattle, this::showResults));
+        if (!levelScaledQuestions) {
+            currentBattle.startBattle(player, opponent);
+        } else if (progression) {
+            currentBattle.startBattle(player, opponent, level);
+        } else {
+            currentBattle.startPracticeBattle(player, opponent, level);
+        }
+        showCard(BATTLE, new BattlePanel(currentBattle,
+                (outcome, metrics) -> showResults(outcome, metrics),
+                () -> showHome(currentProfile)));
+    }
+
+    private Opponent opponentForLevel(int level) {
+        if (level < 1 || level > UserProfile.MAX_JOURNEY_STAGE) {
+            throw new IllegalArgumentException("Level must be between 1 and "
+                    + UserProfile.MAX_JOURNEY_STAGE + ".");
+        }
+        if (level <= 25) {
+            return new Apprentice();
+        }
+        if (level <= 60) {
+            return new Ronin();
+        }
+        return new Shogun();
     }
 
     private void showDashboard() {
@@ -129,7 +202,39 @@ public final class GameWindow extends JFrame {
         worker.execute();
     }
 
+    private void showBattleHistory() {
+        if (currentProfile == null) {
+            throw new IllegalStateException("Choose a player before viewing battle history.");
+        }
+        String username = currentProfile.getUsername();
+        SwingWorker<List<String>, Void> worker = new SwingWorker<List<String>, Void>() {
+            @Override
+            protected List<String> doInBackground() throws Exception {
+                return historyRepository.findRecent(username, 10);
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    List<String> history = get();
+                    String message = history.isEmpty()
+                            ? "No completed battles yet."
+                            : String.join("\n", history);
+                    JOptionPane.showMessageDialog(GameWindow.this, message,
+                            "Recent Battles", JOptionPane.INFORMATION_MESSAGE);
+                } catch (InterruptedException exception) {
+                    Thread.currentThread().interrupt();
+                    showError("Loading battle history was interrupted.");
+                } catch (ExecutionException exception) {
+                    showError(messageFor(exception));
+                }
+            }
+        };
+        worker.execute();
+    }
+
     private void saveCompletedBattle(BattleOutcome outcome) {
+        completedBattleSaved = true;
         UserProfile completedProfile = currentProfile;
         int completedTurns = currentBattle.getTurns();
         Instant completedAt = Instant.now();

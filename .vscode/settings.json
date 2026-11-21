@@ -1,6 +1,7 @@
 {
   "java.project.sourcePaths": [
-    "src"
+    "src",
+    "tests/com/sumurai"
   ],
   "java.project.outputPath": "out",
   "java.configuration.updateBuildConfiguration": "automatic"

@@ -58,8 +58,11 @@ public final class BattleHistoryRepository {
                 throw new IOException("Invalid battle history record at " + dataFile + ":" + (index + 1));
             }
             try {
-                BattleOutcome.valueOf(fields[1]);
-                Integer.parseInt(fields[2]);
+                BattleOutcome outcome = BattleOutcome.valueOf(fields[1]);
+                int turns = Integer.parseInt(fields[2]);
+                if (outcome == BattleOutcome.IN_PROGRESS || turns < 0) {
+                    throw new IllegalArgumentException("Invalid completed battle values.");
+                }
                 Instant.parse(fields[3]);
             } catch (IllegalArgumentException exception) {
                 throw new IOException("Invalid battle history record at " + dataFile + ":" + (index + 1), exception);

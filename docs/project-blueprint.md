@@ -130,9 +130,10 @@ This package contains game data and domain behavior only. It must not import Swi
 
 #### `UserProfile.java` — saved player account state
 - **Responsibility:** Hold a player's identity, progression, and aggregate statistics; never store a plaintext password.
-- **Key fields:** `String username`, `String passwordHash`, `int level`, `long experience`, `BattleStats stats`, `boolean guest`.
-- **Key methods:** `UserProfile(String username, String passwordHash, int level, long experience, BattleStats stats)`, `String getUsername()`, `String getPasswordHash()`, `int getLevel()`, `long getExperience()`, `BattleStats getStats()`, `boolean isGuest()`, `void addExperience(long amount)`, `static UserProfile guest()`.
+- **Key fields:** `String username`, `String passwordHash`, `int level`, `long experience`, `int highestUnlockedStage`, `BattleStats stats`, `boolean guest`.
+- **Key methods:** `UserProfile(String username, String passwordHash, int level, long experience, BattleStats stats)`, the persistence overload accepting `highestUnlockedStage`, `String getUsername()`, `String getPasswordHash()`, `int getLevel()`, `long getExperience()`, `int getHighestUnlockedStage()`, `void recordStageVictory(int stage)`, `BattleStats getStats()`, `boolean isGuest()`, `void addExperience(long amount)`, `static UserProfile guest()`.
 - **Dependencies:** `BattleStats`.
+- **Progression:** Player level and Journey stage are capped at 100. Stage 1 is unlocked for new and legacy profiles; winning the currently unlocked stage unlocks the next stage.
 
 #### `InvalidAnswerException.java` — malformed-answer error
 - **Responsibility:** Report an answer that cannot be parsed as a valid integer without advancing the battle.
@@ -145,17 +146,20 @@ This package contains game data and domain behavior only. It must not import Swi
 This package owns game rules and state transitions. It must not import Swing/AWT or perform file I/O.
 
 #### `ProblemGenerator.java` — arithmetic question generation
-- **Responsibility:** Generate valid questions within a requested difficulty's bounds.
+- **Responsibility:** Generate valid questions within a requested difficulty's bounds or a Journey stage's operand range.
 - **Key fields:** `Random random`.
-- **Key methods:** `ProblemGenerator()`, `ProblemGenerator(Random random)`, `MathProblem generate(Difficulty difficulty)`.
+- **Key methods:** `ProblemGenerator()`, `ProblemGenerator(Random random)`, `MathProblem generate(Difficulty difficulty)`, `MathProblem generateForLevel(int level)`.
 - **Dependencies:** `Difficulty`, `MathProblem`, `OperationType`.
+- **Journey scaling:** Each operand is capped at `level * 10` through level 100 (maximum 1000); division questions remain exact.
 
 #### `BattleEngine.java` — battle rules and turn transitions
 - **Responsibility:** Start battles, validate answers, apply moves/opponent attacks, update stats, and expose current battle state.
 - **Key fields:** `ProblemGenerator problemGenerator`, `Player player`, `Opponent opponent`, `MathProblem currentProblem`, `BattleOutcome outcome`.
-- **Key methods:** `BattleEngine(ProblemGenerator problemGenerator)`, `MathProblem startBattle(Player player, Opponent opponent)`, `BattleOutcome submitAnswer(String answer, Move move) throws InvalidAnswerException`, `BattleOutcome endBattleByTimeout()`, `MathProblem getCurrentProblem()`, `Player getPlayer()`, `Opponent getOpponent()`, `BattleOutcome getOutcome()`, `int getTurns()`.
+- **Key methods:** `BattleEngine(ProblemGenerator problemGenerator)`, `MathProblem startBattle(Player player, Opponent opponent)`, level-aware `MathProblem startBattle(Player player, Opponent opponent, int level)`, `MathProblem startPracticeBattle(Player player, Opponent opponent, int level)`, `BattleOutcome submitAnswer(String answer, Move move) throws InvalidAnswerException`, `BattleOutcome endBattleByTimeout()`, `MathProblem getCurrentProblem()`, `Player getPlayer()`, `Opponent getOpponent()`, `BattleOutcome getOutcome()`, `int getTurns()`.
 - **Dependencies:** `ProblemGenerator` and relevant `model/` classes.
 - **Contract note:** Malformed text throws `InvalidAnswerException` without consuming a turn. A well-formed wrong answer follows the opponent-attack rule. A correct answer applies the selected move. Finished battles reject further submissions with `IllegalStateException`. The battle panel owns the countdown and ends the battle through `endBattleByTimeout()`.
+- **Journey rules:** The level-aware battle start validates the profile's unlock, scales opponent damage by `1.0 + 0.02 * (level - 1)` (1.0x–2.98x), and records a stage victory only for progression battles. Practice uses the selected stage's questions/damage but does not unlock stages.
+- **Journey opponent mapping:** Apprentice at levels 1–25, Ronin at levels 26–60, and Shogun at levels 61–100. Damage uses the mapped opponent's base damage and rounds the scaled result to the nearest integer.
 
 ### `com.sumurai.storage`
 
@@ -166,6 +170,7 @@ Storage owns filesystem access. Repository methods report I/O errors; they must 
 - **Key fields:** `Path dataFile`.
 - **Key methods:** `UserRepository(Path dataFile)`, `Optional<UserProfile> authenticate(String username, char[] password) throws IOException`, `UserProfile register(String username, char[] password) throws IOException`, `void save(UserProfile profile) throws IOException`, `List<UserProfile> findLeaderboard(int limit) throws IOException`.
 - **Dependencies:** `UserProfile`, `BattleStats`; Java file I/O and password-hashing APIs.
+- **Format compatibility:** Reads existing eight-field account records as stage 1, caps older profile levels at 100, and writes the ninth highest-unlocked-stage field on save.
 
 #### `BattleHistoryRepository.java` — battle-log persistence
 - **Responsibility:** Append completed battle summaries and retrieve a player's recent history from `data/history.txt`.
@@ -190,22 +195,33 @@ Swing components display state and forward user actions; game rules stay in `eng
 - **Dependencies:** Swing, `UserRepository`, `UserProfile`.
 - **Threading contract:** Run repository calls off the Event Dispatch Thread (for example with `SwingWorker`) and return UI updates to that thread.
 
-#### `HomePanel.java` — game mode and opponent selection
-- **Responsibility:** Offer navigation to a battle, dashboard, or leaderboard.
+#### `HomePanel.java` — journey screen
+- **Responsibility:** Render the three-panel Journey home screen: left navigation, chapter and level path, and right-side player level/XP and profile stats widgets.
 - **Key fields:** `UserProfile profile`.
-- **Key methods:** `HomePanel(UserProfile profile, Runnable onPlay, Runnable onDashboard, Runnable onLeaderboard)`.
-- **Dependencies:** Swing, `UserProfile`, `Opponent` choices.
+- **Key methods:** Legacy `HomePanel(UserProfile profile, Runnable onPlay, Runnable onDashboard, Runnable onLeaderboard)` and the callback-based constructor for level selection, practice, history, dashboard, and leaderboard.
+- **Dependencies:** Swing, `UserProfile`, `LevelPathPanel`.
+- **Navigation:** Journey, Practice, History, Leaderboard, and Profile are wired to app actions.
+
+#### `LevelPathPanel.java` — horizontally scrollable stage path
+- **Responsibility:** Display 100 stage nodes, disable locked nodes, focus the newest unlocked stage, and support horizontal scrollbar, mouse-wheel, and mouse-drag navigation.
+- **Key methods:** `LevelPathPanel(UserProfile profile, IntConsumer onLevelSelected)`.
+- **Dependencies:** Swing, `UserProfile`.
 
 #### `BattlePanel.java` — battle presentation and input
 - **Responsibility:** Display question/health/countdown, submit answers through move controls, and finish on defeat or timeout.
 - **Key fields:** `BattleEngine battleEngine`, question/answer labels and fields, health bars, move controls, Swing `Timer`.
-- **Key methods:** `BattlePanel(BattleEngine engine, Consumer<BattleOutcome> onFinished)`, `void refreshBattleView()`.
+- **Key methods:** `BattlePanel(BattleEngine engine, Consumer<BattleOutcome> onFinished)`, `BattlePanel(BattleEngine engine, BiConsumer<BattleOutcome, BattleResultMetrics> onFinished, Runnable onMenu)`, `void refreshBattleView()`.
 - **Dependencies:** Swing, `BattleEngine`, `MathProblem`, `Move`, `BattleOutcome`.
+
+#### `BattleArenaPanel.java`, `MathPromptDialog.java`, and `BattleResultMetrics.java`
+- **Responsibility:** Render the battle scene and sprite animations; display math prompts; carry immutable, current-battle results metrics to the results screen.
+- **Key methods:** `BattleArenaPanel(String opponentName)`, `MathPromptDialog.show(Component parent, String prompt)`, `BattleResultMetrics(...)`.
+- **Dependencies:** Swing, battle model move types.
 
 #### `ResultPanel.java` — completed battle summary
 - **Responsibility:** Present the outcome and let the player continue.
 - **Key fields:** `BattleOutcome outcome`, `BattleStats stats`.
-- **Key methods:** `ResultPanel(BattleOutcome outcome, BattleStats stats, Runnable onHome, Runnable onDashboard, Runnable onLeaderboard)`.
+- **Key methods:** `ResultPanel(BattleOutcome outcome, BattleStats stats, Runnable onHome, Runnable onDashboard, Runnable onLeaderboard)`, plus the results-layout overload accepting current-battle metrics and next-level/replay/home actions.
 - **Dependencies:** Swing, `BattleOutcome`, `BattleStats`.
 
 #### `DashboardPanel.java` — player progression

@@ -3,14 +3,8 @@ package com.sumurai.gui;
 
 import com.sumurai.engine.BattleEngine;
 import com.sumurai.model.BattleOutcome;
-import com.sumurai.model.BasicAttack;
-import com.sumurai.model.Buff;
-import com.sumurai.model.Debuff;
-import com.sumurai.model.Heal;
 import com.sumurai.model.InvalidAnswerException;
 import com.sumurai.model.Move;
-import com.sumurai.model.Shield;
-import com.sumurai.model.SpecialAttack;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -27,6 +21,7 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -168,8 +163,9 @@ public final class BattlePanel extends JPanel {
         JPanel moves = new JPanel(new GridLayout(2, 3, 12, 10));
         moves.setOpaque(false);
         String[] names = {"Basic Attack", "Special Attack", "Block", "Heal", "Buff", "Debuff"};
+        List<Move> availableMoves = BattleEngine.createStandardMoves();
         for (int index = 0; index < names.length; index++) {
-            final Move move = createMove(index);
+            final Move move = availableMoves.get(index);
             JButton button = createMoveButton(names[index], move);
             button.addActionListener(event -> askForAnswer(move));
             moveButtons[index] = button;
@@ -350,25 +346,6 @@ public final class BattlePanel extends JPanel {
                 BorderFactory.createLineBorder(new Color(91, 61, 43), 3),
                 BorderFactory.createEmptyBorder(4, 8, 4, 8)));
         return button;
-    }
-
-    private Move createMove(int index) {
-        switch (index) {
-            case 0:
-                return new BasicAttack(12);
-            case 1:
-                return new SpecialAttack(22);
-            case 2:
-                return new Shield(15);
-            case 3:
-                return new Heal(18);
-            case 4:
-                return new Buff(5, 3);
-            case 5:
-                return new Debuff(4, 3);
-            default:
-                throw new IllegalArgumentException("Unknown move index.");
-        }
     }
 
     private void configureHealthBar(JProgressBar progressBar, int maximum) {

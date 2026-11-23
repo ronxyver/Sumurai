@@ -3,12 +3,9 @@ package com.sumurai.gui;
 
 import com.sumurai.engine.BattleEngine;
 import com.sumurai.engine.ProblemGenerator;
-import com.sumurai.model.Apprentice;
 import com.sumurai.model.BattleOutcome;
 import com.sumurai.model.Opponent;
 import com.sumurai.model.Player;
-import com.sumurai.model.Ronin;
-import com.sumurai.model.Shogun;
 import com.sumurai.model.UserProfile;
 import com.sumurai.storage.BattleHistoryRepository;
 import com.sumurai.storage.UserRepository;
@@ -128,7 +125,7 @@ public final class GameWindow extends JFrame {
                 || level > currentProfile.getHighestUnlockedStage()) {
             throw new IllegalArgumentException("That stage is locked.");
         }
-        launchBattle(opponentForLevel(level), level, !practice, true);
+        launchBattle(BattleEngine.createOpponentForLevel(level), level, !practice, true);
     }
 
     private void launchBattle(Opponent opponent, int level, boolean progression,
@@ -152,20 +149,6 @@ public final class GameWindow extends JFrame {
         showCard(BATTLE, new BattlePanel(currentBattle,
                 (outcome, metrics) -> showResults(outcome, metrics),
                 () -> showHome(currentProfile)));
-    }
-
-    private Opponent opponentForLevel(int level) {
-        if (level < 1 || level > UserProfile.MAX_JOURNEY_STAGE) {
-            throw new IllegalArgumentException("Level must be between 1 and "
-                    + UserProfile.MAX_JOURNEY_STAGE + ".");
-        }
-        if (level <= 25) {
-            return new Apprentice();
-        }
-        if (level <= 60) {
-            return new Ronin();
-        }
-        return new Shogun();
     }
 
     private void showDashboard() {

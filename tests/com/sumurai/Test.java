@@ -2,6 +2,7 @@ package com.sumurai;
 
 import com.sumurai.engine.BattleEngine;
 import com.sumurai.engine.ProblemGenerator;
+import com.sumurai.gui.BattleArenaPanel;
 import com.sumurai.gui.BattleResultMetrics;
 import com.sumurai.gui.HomePanel;
 import com.sumurai.model.Apprentice;
@@ -12,6 +13,7 @@ import com.sumurai.model.Debuff;
 import com.sumurai.model.Heal;
 import com.sumurai.model.InvalidAnswerException;
 import com.sumurai.model.MathProblem;
+import com.sumurai.model.Move;
 import com.sumurai.model.Opponent;
 import com.sumurai.model.Player;
 import com.sumurai.model.Ronin;
@@ -24,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class Test {
@@ -44,6 +47,9 @@ public final class Test {
         testProblemsScaleWithLevel();
         testProgressionRequiresWinningCurrentStage();
         testLevelDamageMultiplier();
+        testJourneyOpponentMapping();
+        testStandardMoveCatalog();
+        testSpecialAttackFramesRenderAtArenaScale();
         testLegacyProfilesMigrateWithStageProgress();
         testPlayerLevelStopsAt100();
         testJourneyPanelContainsThreeMainSectionsAnd100Stages();
@@ -238,6 +244,134 @@ public final class Test {
             assertEquals(100 - expectedDamage, engine.getPlayer().getHealth(),
                     "Enemy damage multiplier was incorrect at level " + level + ".");
         }
+    }
+
+    private static void testJourneyOpponentMapping() {
+        assertTrue(BattleEngine.createOpponentForLevel(1) instanceof Apprentice,
+                "Level 1 should map to Apprentice.");
+        assertTrue(BattleEngine.createOpponentForLevel(25) instanceof Apprentice,
+                "Level 25 should map to Apprentice.");
+        assertTrue(BattleEngine.createOpponentForLevel(26) instanceof Ronin,
+                "Level 26 should map to Ronin.");
+        assertTrue(BattleEngine.createOpponentForLevel(60) instanceof Ronin,
+                "Level 60 should map to Ronin.");
+        assertTrue(BattleEngine.createOpponentForLevel(61) instanceof Shogun,
+                "Level 61 should map to Shogun.");
+        assertTrue(BattleEngine.createOpponentForLevel(100) instanceof Shogun,
+                "Level 100 should map to Shogun.");
+        expectIllegalArgument(() -> BattleEngine.createOpponentForLevel(0));
+        expectIllegalArgument(() -> BattleEngine.createOpponentForLevel(101));
+    }
+
+    private static void testStandardMoveCatalog() {
+        List<Move> moves = BattleEngine.createStandardMoves();
+        assertEquals(6, moves.size(), "Standard move catalog should include six moves.");
+        assertEquals(12, moves.get(0).getPower(), "Basic Attack power changed.");
+        assertEquals(22, moves.get(1).getPower(), "Special Attack power changed.");
+        assertEquals(15, moves.get(2).getPower(), "Shield power changed.");
+        assertEquals(18, moves.get(3).getPower(), "Heal power changed.");
+        assertEquals(5, moves.get(4).getPower(), "Buff magnitude changed.");
+        assertEquals(3, ((Buff) moves.get(4)).getRemainingTurns(), "Buff duration changed.");
+        assertEquals(4, moves.get(5).getPower(), "Debuff magnitude changed.");
+        assertEquals(3, ((Debuff) moves.get(5)).getRemainingTurns(), "Debuff duration changed.");
+        try {
+            moves.clear();
+            throw new AssertionError("Standard move catalog must be immutable.");
+        } catch (UnsupportedOperationException expected) {
+            // Expected: callers should not mutate the engine's move catalog.
+        }
+    }
+
+    private static void testSpecialAttackFramesRenderAtArenaScale() throws Exception {
+        BattleArenaPanel arena = new BattleArenaPanel("Apprentice");
+        javax.swing.JLayeredPane[] layers = new javax.swing.JLayeredPane[1];
+        javax.swing.JPanel[] overlay = new javax.swing.JPanel[1];
+        javax.swing.SwingUtilities.invokeAndWait(() -> {
+            arena.setSize(400, 280);
+            arena.doLayout();
+            for (java.awt.Component component : arena.getComponents()) {
+                if (component instanceof javax.swing.JLayeredPane) {
+                    layers[0] = (javax.swing.JLayeredPane) component;
+                    break;
+                }
+            }
+            assertTrue(layers[0] != null, "Battle arena fighter layers were not found.");
+            layers[0].doLayout();
+            for (java.awt.Component component : layers[0].getComponents()) {
+                if (component.getClass().getName().endsWith("$SpecialAttackOverlay")) {
+                    overlay[0] = (javax.swing.JPanel) component;
+                    break;
+                }
+            }
+            assertTrue(overlay[0] != null, "Special attack overlay was not found.");
+            arena.playPlayerMove(new SpecialAttack(22));
+        });
+
+        long deadline = System.currentTimeMillis() + 30000;
+        boolean animationLoaded = false;
+        while (!animationLoaded && System.currentTimeMillis() < deadline) {
+            boolean[] visible = new boolean[1];
+            javax.swing.SwingUtilities.invokeAndWait(
+                    () -> visible[0] = overlay[0].isVisible());
+            animationLoaded = visible[0];
+            if (!animationLoaded) {
+                Thread.sleep(50);
+            }
+        }
+        assertTrue(animationLoaded, "Special attack frames did not load.");
+
+        try {
+            java.awt.image.BufferedImage firstFrame = renderComponent(overlay[0]);
+            assertTrue(countOpaquePixels(firstFrame) > 0,
+                    "Special attack character was not rendered.");
+            assertEquals(0, firstFrame.getRGB(80, 10) >>> 24,
+                    "The special attack frame background was not transparent.");
+
+            Thread.sleep(1200);
+            java.awt.image.BufferedImage laterFrame = renderComponent(overlay[0]);
+            assertTrue(countDifferentPixels(firstFrame, laterFrame) > 100,
+                    "The special attack animation did not advance through its frames.");
+        } finally {
+            javax.swing.SwingUtilities.invokeAndWait(arena::setIdle);
+        }
+    }
+
+    private static java.awt.image.BufferedImage renderComponent(
+            javax.swing.JComponent component) throws Exception {
+        java.awt.image.BufferedImage image = new java.awt.image.BufferedImage(
+                component.getWidth(), component.getHeight(),
+                java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        javax.swing.SwingUtilities.invokeAndWait(() -> {
+            java.awt.Graphics graphics = image.getGraphics();
+            component.paint(graphics);
+            graphics.dispose();
+        });
+        return image;
+    }
+
+    private static int countOpaquePixels(java.awt.image.BufferedImage image) {
+        int count = 0;
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                if ((image.getRGB(x, y) >>> 24) != 0) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
+
+    private static int countDifferentPixels(java.awt.image.BufferedImage first,
+                                            java.awt.image.BufferedImage second) {
+        int count = 0;
+        for (int y = 0; y < first.getHeight(); y++) {
+            for (int x = 0; x < first.getWidth(); x++) {
+                if (first.getRGB(x, y) != second.getRGB(x, y)) {
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 
     private static void testLegacyProfilesMigrateWithStageProgress() throws Exception {

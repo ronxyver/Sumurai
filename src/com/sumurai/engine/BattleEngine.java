@@ -1,6 +1,7 @@
 // OWNER: Ron Xyver Atienza
 package com.sumurai.engine;
 
+import com.sumurai.model.Apprentice;
 import com.sumurai.model.BattleOutcome;
 import com.sumurai.model.BasicAttack;
 import com.sumurai.model.Buff;
@@ -13,10 +14,15 @@ import com.sumurai.model.MathProblem;
 import com.sumurai.model.Move;
 import com.sumurai.model.Opponent;
 import com.sumurai.model.Player;
+import com.sumurai.model.Ronin;
 import com.sumurai.model.Shield;
+import com.sumurai.model.Shogun;
 import com.sumurai.model.SpecialAttack;
 import com.sumurai.model.UserProfile;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 
 public final class BattleEngine {
@@ -37,6 +43,30 @@ public final class BattleEngine {
 
     public BattleEngine(ProblemGenerator problemGenerator) {
         this.problemGenerator = Objects.requireNonNull(problemGenerator, "problemGenerator");
+    }
+
+    public static Opponent createOpponentForLevel(int level) {
+        if (level < 1 || level > UserProfile.MAX_JOURNEY_STAGE) {
+            throw new IllegalArgumentException("Level must be between 1 and "
+                    + UserProfile.MAX_JOURNEY_STAGE + ".");
+        }
+        if (level <= 25) {
+            return new Apprentice();
+        }
+        if (level <= 60) {
+            return new Ronin();
+        }
+        return new Shogun();
+    }
+
+    public static List<Move> createStandardMoves() {
+        return Collections.unmodifiableList(Arrays.<Move>asList(
+                new BasicAttack(12),
+                new SpecialAttack(22),
+                new Shield(15),
+                new Heal(18),
+                new Buff(5, 3),
+                new Debuff(4, 3)));
     }
 
     public MathProblem startBattle(Player player, Opponent opponent) {

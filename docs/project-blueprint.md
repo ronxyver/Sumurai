@@ -155,8 +155,8 @@ This package owns game rules and state transitions. It must not import Swing/AWT
 #### `BattleEngine.java` — battle rules and turn transitions
 - **Responsibility:** Start battles, validate answers, apply moves/opponent attacks, update stats, and expose current battle state.
 - **Key fields:** `ProblemGenerator problemGenerator`, `Player player`, `Opponent opponent`, `MathProblem currentProblem`, `BattleOutcome outcome`.
-- **Key methods:** `BattleEngine(ProblemGenerator problemGenerator)`, `MathProblem startBattle(Player player, Opponent opponent)`, level-aware `MathProblem startBattle(Player player, Opponent opponent, int level)`, `MathProblem startPracticeBattle(Player player, Opponent opponent, int level)`, `BattleOutcome submitAnswer(String answer, Move move) throws InvalidAnswerException`, `BattleOutcome endBattleByTimeout()`, `MathProblem getCurrentProblem()`, `Player getPlayer()`, `Opponent getOpponent()`, `BattleOutcome getOutcome()`, `int getTurns()`.
-- **Dependencies:** `ProblemGenerator` and relevant `model/` classes.
+- **Key methods:** `BattleEngine(ProblemGenerator problemGenerator)`, `static Opponent createOpponentForLevel(int level)`, `static List<Move> createStandardMoves()`, `MathProblem startBattle(Player player, Opponent opponent)`, level-aware `MathProblem startBattle(Player player, Opponent opponent, int level)`, `MathProblem startPracticeBattle(Player player, Opponent opponent, int level)`, `BattleOutcome submitAnswer(String answer, Move move) throws InvalidAnswerException`, `BattleOutcome endBattleByTimeout()`, `MathProblem getCurrentProblem()`, `Player getPlayer()`, `Opponent getOpponent()`, `BattleOutcome getOutcome()`, `int getTurns()`.
+- **Dependencies:** `ProblemGenerator` and relevant `model/` classes, including Journey opponent variants and move types.
 - **Contract note:** Malformed text throws `InvalidAnswerException` without consuming a turn. A well-formed wrong answer follows the opponent-attack rule. A correct answer applies the selected move. Finished battles reject further submissions with `IllegalStateException`. The battle panel owns the countdown and ends the battle through `endBattleByTimeout()`.
 - **Journey rules:** The level-aware battle start validates the profile's unlock, scales opponent damage by `1.0 + 0.02 * (level - 1)` (1.0x–2.98x), and records a stage victory only for progression battles. Practice uses the selected stage's questions/damage but does not unlock stages.
 - **Journey opponent mapping:** Apprentice at levels 1–25, Ronin at levels 26–60, and Shogun at levels 61–100. Damage uses the mapped opponent's base damage and rounds the scaled result to the nearest integer.
@@ -217,6 +217,7 @@ Swing components display state and forward user actions; game rules stay in `eng
 - **Responsibility:** Render the battle scene and sprite animations; display math prompts; carry immutable, current-battle results metrics to the results screen.
 - **Key methods:** `BattleArenaPanel(String opponentName)`, `MathPromptDialog.show(Component parent, String prompt)`, `BattleResultMetrics(...)`.
 - **Dependencies:** Swing, battle model move types.
+- **Animation note:** The player's special attack uses the 81 `ezgif-frame-*.png` images, removes the connected light backdrop, and scales the sequence to the fighter area.
 
 #### `ResultPanel.java` — completed battle summary
 - **Responsibility:** Present the outcome and let the player continue.

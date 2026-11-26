@@ -166,14 +166,15 @@ public final class GameWindow extends JFrame {
         SwingWorker<List<UserProfile>, Void> worker = new SwingWorker<List<UserProfile>, Void>() {
             @Override
             protected List<UserProfile> doInBackground() throws Exception {
-                return userRepository.findLeaderboard(20);
+                return userRepository.findAllProfiles();
             }
 
             @Override
             protected void done() {
                 try {
                     showCard(LEADERBOARD,
-                            new LeaderboardPanel(get(), () -> showHome(currentProfile)));
+                            new LeaderboardPanel(get(), currentProfile.getUsername(),
+                                    () -> showHome(currentProfile)));
                 } catch (InterruptedException exception) {
                     Thread.currentThread().interrupt();
                     showError("Loading the leaderboard was interrupted.");

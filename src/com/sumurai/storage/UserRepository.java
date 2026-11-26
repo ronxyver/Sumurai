@@ -116,6 +116,10 @@ public final class UserRepository {
         return profiles;
     }
 
+    public synchronized List<UserProfile> findAllProfiles() throws IOException {
+        return new ArrayList<UserProfile>(readProfiles().values());
+    }
+
     private Map<String, UserProfile> readProfiles() throws IOException {
         Map<String, UserProfile> profiles = new LinkedHashMap<String, UserProfile>();
         List<String> lines = Files.readAllLines(dataFile, StandardCharsets.UTF_8);
@@ -126,6 +130,7 @@ public final class UserRepository {
             }
             String[] fields = line.split("\\t", -1);
             try {
+<<<<<<< HEAD
                 if (fields.length != 8 && fields.length != 9) {
                     throw new IllegalArgumentException("Expected 8 or 9 tab-separated fields.");
                 }
@@ -135,6 +140,28 @@ public final class UserRepository {
                         Integer.parseInt(fields[6]),
                         Integer.parseInt(fields[7]));
                 int savedLevel = Integer.parseInt(fields[2]);
+=======
+                if (fields.length != 8 && fields.length != 11) {
+                    throw new IllegalArgumentException("Expected 8 or 11 tab-separated fields.");
+                }
+                BattleStats stats;
+                if (fields.length == 8) {
+                    stats = new BattleStats(
+                            Integer.parseInt(fields[4]),
+                            Integer.parseInt(fields[5]),
+                            Integer.parseInt(fields[6]),
+                            Integer.parseInt(fields[7]));
+                } else {
+                    stats = new BattleStats(
+                            Integer.parseInt(fields[4]),
+                            Integer.parseInt(fields[5]),
+                            Integer.parseInt(fields[6]),
+                            Integer.parseInt(fields[7]),
+                            Integer.parseInt(fields[8]),
+                            Integer.parseInt(fields[9]),
+                            Long.parseLong(fields[10]));
+                }
+>>>>>>> Leaderboards/added-UI
                 UserProfile profile = new UserProfile(
                         fields[0], fields[1],
                         Math.min(savedLevel, UserProfile.MAX_PLAYER_LEVEL), Long.parseLong(fields[3]),
@@ -157,7 +184,12 @@ public final class UserRepository {
                     + profile.getLevel() + "\t" + profile.getExperience() + "\t"
                     + stats.getBattlesPlayed() + "\t" + stats.getWins() + "\t"
                     + stats.getLosses() + "\t" + stats.getCorrectAnswers() + "\t"
+<<<<<<< HEAD
                     + profile.getHighestUnlockedStage());
+=======
+                    + stats.getMeasuredAnswers() + "\t" + stats.getMeasuredCorrectAnswers() + "\t"
+                    + stats.getTotalAnswerTimeMillis());
+>>>>>>> Leaderboards/added-UI
         }
         Files.write(dataFile, lines, StandardCharsets.UTF_8);
     }

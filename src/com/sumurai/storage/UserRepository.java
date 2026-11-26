@@ -116,6 +116,10 @@ public final class UserRepository {
         return profiles;
     }
 
+    public synchronized List<UserProfile> findAllProfiles() throws IOException {
+        return new ArrayList<UserProfile>(readProfiles().values());
+    }
+
     private Map<String, UserProfile> readProfiles() throws IOException {
         Map<String, UserProfile> profiles = new LinkedHashMap<String, UserProfile>();
         List<String> lines = Files.readAllLines(dataFile, StandardCharsets.UTF_8);
@@ -126,14 +130,26 @@ public final class UserRepository {
             }
             String[] fields = line.split("\\t", -1);
             try {
-                if (fields.length != 8) {
-                    throw new IllegalArgumentException("Expected 8 tab-separated fields.");
+                if (fields.length != 8 && fields.length != 11) {
+                    throw new IllegalArgumentException("Expected 8 or 11 tab-separated fields.");
                 }
-                BattleStats stats = new BattleStats(
-                        Integer.parseInt(fields[4]),
-                        Integer.parseInt(fields[5]),
-                        Integer.parseInt(fields[6]),
-                        Integer.parseInt(fields[7]));
+                BattleStats stats;
+                if (fields.length == 8) {
+                    stats = new BattleStats(
+                            Integer.parseInt(fields[4]),
+                            Integer.parseInt(fields[5]),
+                            Integer.parseInt(fields[6]),
+                            Integer.parseInt(fields[7]));
+                } else {
+                    stats = new BattleStats(
+                            Integer.parseInt(fields[4]),
+                            Integer.parseInt(fields[5]),
+                            Integer.parseInt(fields[6]),
+                            Integer.parseInt(fields[7]),
+                            Integer.parseInt(fields[8]),
+                            Integer.parseInt(fields[9]),
+                            Long.parseLong(fields[10]));
+                }
                 UserProfile profile = new UserProfile(
                         fields[0], fields[1], Integer.parseInt(fields[2]), Long.parseLong(fields[3]), stats);
                 if (profiles.put(profile.getUsername(), profile) != null) {
@@ -153,7 +169,9 @@ public final class UserRepository {
             lines.add(profile.getUsername() + "\t" + profile.getPasswordHash() + "\t"
                     + profile.getLevel() + "\t" + profile.getExperience() + "\t"
                     + stats.getBattlesPlayed() + "\t" + stats.getWins() + "\t"
-                    + stats.getLosses() + "\t" + stats.getCorrectAnswers());
+                    + stats.getLosses() + "\t" + stats.getCorrectAnswers() + "\t"
+                    + stats.getMeasuredAnswers() + "\t" + stats.getMeasuredCorrectAnswers() + "\t"
+                    + stats.getTotalAnswerTimeMillis());
         }
         Files.write(dataFile, lines, StandardCharsets.UTF_8);
     }

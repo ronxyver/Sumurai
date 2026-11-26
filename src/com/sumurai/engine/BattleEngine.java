@@ -5,7 +5,6 @@ import com.sumurai.model.BattleOutcome;
 import com.sumurai.model.BasicAttack;
 import com.sumurai.model.Buff;
 import com.sumurai.model.Debuff;
-import com.sumurai.model.Difficulty;
 import com.sumurai.model.GameCharacter;
 import com.sumurai.model.Heal;
 import com.sumurai.model.InvalidAnswerException;
@@ -30,6 +29,7 @@ public final class BattleEngine {
     private int reducedOpponentDamage;
     private int reducedOpponentDamageTurns;
     private boolean battleRecorded;
+    private long problemStartedAtNanos;
 
     public BattleEngine(ProblemGenerator problemGenerator) {
         this.problemGenerator = Objects.requireNonNull(problemGenerator, "problemGenerator");
@@ -46,6 +46,7 @@ public final class BattleEngine {
         this.battleRecorded = false;
         this.outcome = BattleOutcome.IN_PROGRESS;
         this.currentProblem = problemGenerator.generate(opponent.getDifficulty());
+        this.problemStartedAtNanos = System.nanoTime();
         return currentProblem;
     }
 
@@ -61,7 +62,9 @@ public final class BattleEngine {
 
         turns++;
         boolean correct = currentProblem.isCorrect(numericAnswer);
-        player.getProfile().getStats().recordAnswer(correct);
+        long answerTimeMillis = Math.max(1,
+                (System.nanoTime() - problemStartedAtNanos) / 1_000_000L);
+        player.getProfile().getStats().recordAnswer(correct, answerTimeMillis);
         if (correct) {
             applyMove(move);
         } else {
@@ -75,6 +78,7 @@ public final class BattleEngine {
             finish(BattleOutcome.PLAYER_WON);
         } else {
             currentProblem = problemGenerator.generate(opponent.getDifficulty());
+            problemStartedAtNanos = System.nanoTime();
         }
         return outcome;
     }

@@ -16,8 +16,7 @@ From the repository root:
 New-Item -ItemType Directory -Force out | Out-Null
 $sources = Get-ChildItem -Path src\com\sumurai -Recurse -Filter *.java |
     ForEach-Object { $_.FullName }
-<<<<<<< HEAD
-javac -encoding UTF-8 -d out $sources
+javac --release 25 -encoding UTF-8 -d out $sources
 New-Item -ItemType Directory -Force out\images | Out-Null
 Copy-Item -Recurse -Force assets\images\* out\images
 java -cp out com.sumurai.Main
@@ -33,19 +32,8 @@ $testSources = Get-ChildItem -Path tests\com\sumurai -Recurse -Filter *.java |
     ForEach-Object { $_.FullName }
 javac -encoding UTF-8 -cp out -d out $testSources
 java -cp out com.sumurai.Test
-=======
-javac --release 25 -encoding UTF-8 -d out $sources
-java -cp out com.sumurai.Main
-```
-
-## Run the focused leaderboard checks
-
-After compiling the project, run:
-
-```powershell
 javac --release 25 -encoding UTF-8 -cp out -d out tests\com\sumurai\leaderboard\LeaderboardServiceTest.java
 java -cp out com.sumurai.leaderboard.LeaderboardServiceTest
->>>>>>> Leaderboards/added-UI
 ```
 
 Choose **Play as Guest** to start immediately, or **Sign Up** before logging in.

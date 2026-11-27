@@ -392,7 +392,7 @@ public final class Test {
             UserProfile loaded = repository.findLeaderboard(10).get(0);
             assertEquals(2, loaded.getHighestUnlockedStage(),
                     "Unlocked stage was not persisted.");
-            assertEquals(9, Files.readAllLines(dataFile, StandardCharsets.UTF_8)
+            assertEquals(12, Files.readAllLines(dataFile, StandardCharsets.UTF_8)
                             .get(0).split("\\t", -1).length,
                     "Profile save did not write the progression field.");
         } finally {

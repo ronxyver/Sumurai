@@ -130,20 +130,12 @@ public final class UserRepository {
             }
             String[] fields = line.split("\\t", -1);
             try {
-<<<<<<< HEAD
-                if (fields.length != 8 && fields.length != 9) {
-                    throw new IllegalArgumentException("Expected 8 or 9 tab-separated fields.");
+                if (fields.length != 8 && fields.length != 9
+                        && fields.length != 11 && fields.length != 12) {
+                    throw new IllegalArgumentException(
+                            "Expected 8, 9, 11, or 12 tab-separated fields.");
                 }
-                BattleStats stats = new BattleStats(
-                        Integer.parseInt(fields[4]),
-                        Integer.parseInt(fields[5]),
-                        Integer.parseInt(fields[6]),
-                        Integer.parseInt(fields[7]));
                 int savedLevel = Integer.parseInt(fields[2]);
-=======
-                if (fields.length != 8 && fields.length != 11) {
-                    throw new IllegalArgumentException("Expected 8 or 11 tab-separated fields.");
-                }
                 BattleStats stats;
                 if (fields.length == 8) {
                     stats = new BattleStats(
@@ -151,21 +143,35 @@ public final class UserRepository {
                             Integer.parseInt(fields[5]),
                             Integer.parseInt(fields[6]),
                             Integer.parseInt(fields[7]));
+                } else if (fields.length == 9) {
+                    stats = new BattleStats(
+                            Integer.parseInt(fields[4]),
+                            Integer.parseInt(fields[5]),
+                            Integer.parseInt(fields[6]),
+                            Integer.parseInt(fields[7]));
                 } else {
+                    int measuredOffset = fields.length == 12 ? 9 : 8;
                     stats = new BattleStats(
                             Integer.parseInt(fields[4]),
                             Integer.parseInt(fields[5]),
                             Integer.parseInt(fields[6]),
                             Integer.parseInt(fields[7]),
-                            Integer.parseInt(fields[8]),
-                            Integer.parseInt(fields[9]),
-                            Long.parseLong(fields[10]));
+                            Integer.parseInt(fields[measuredOffset]),
+                            Integer.parseInt(fields[measuredOffset + 1]),
+                            Long.parseLong(fields[measuredOffset + 2]));
                 }
->>>>>>> Leaderboards/added-UI
+                int highestUnlockedStage = fields.length == 9
+                        ? Integer.parseInt(fields[8])
+                        : fields.length == 12
+                            ? Integer.parseInt(fields[8])
+                            : 1;
+                highestUnlockedStage = Math.max(1, Math.min(
+                        highestUnlockedStage, UserProfile.MAX_JOURNEY_STAGE));
                 UserProfile profile = new UserProfile(
                         fields[0], fields[1],
-                        Math.min(savedLevel, UserProfile.MAX_PLAYER_LEVEL), Long.parseLong(fields[3]),
-                        stats, fields.length == 9 ? Integer.parseInt(fields[8]) : 1);
+                        Math.max(1, Math.min(savedLevel, UserProfile.MAX_PLAYER_LEVEL)),
+                        Long.parseLong(fields[3]),
+                        stats, highestUnlockedStage);
                 if (profiles.put(profile.getUsername(), profile) != null) {
                     throw new IllegalArgumentException("Duplicate username.");
                 }
@@ -184,12 +190,9 @@ public final class UserRepository {
                     + profile.getLevel() + "\t" + profile.getExperience() + "\t"
                     + stats.getBattlesPlayed() + "\t" + stats.getWins() + "\t"
                     + stats.getLosses() + "\t" + stats.getCorrectAnswers() + "\t"
-<<<<<<< HEAD
-                    + profile.getHighestUnlockedStage());
-=======
+                    + profile.getHighestUnlockedStage() + "\t"
                     + stats.getMeasuredAnswers() + "\t" + stats.getMeasuredCorrectAnswers() + "\t"
                     + stats.getTotalAnswerTimeMillis());
->>>>>>> Leaderboards/added-UI
         }
         Files.write(dataFile, lines, StandardCharsets.UTF_8);
     }

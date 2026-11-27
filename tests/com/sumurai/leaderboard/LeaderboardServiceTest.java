@@ -91,7 +91,7 @@ public final class LeaderboardServiceTest {
 
             repository.save(legacy);
             List<String> storedLines = Files.readAllLines(dataFile, StandardCharsets.UTF_8);
-            assertEquals(11, storedLines.get(0).split("\\t", -1).length);
+            assertEquals(12, storedLines.get(0).split("\\t", -1).length);
 
             UserProfile migrated = new UserRepository(dataFile).findAllProfiles().get(0);
             assertEquals(7, migrated.getStats().getCorrectAnswers());

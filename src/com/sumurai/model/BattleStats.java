@@ -20,14 +20,10 @@ public final class BattleStats {
     public BattleStats(int battlesPlayed, int wins, int losses, int correctAnswers,
                        int measuredAnswers, int measuredCorrectAnswers, long totalAnswerTimeMillis) {
         if (battlesPlayed < 0 || wins < 0 || losses < 0 || correctAnswers < 0
-<<<<<<< HEAD
-                || (long) wins + losses > battlesPlayed) {
-=======
                 || (long) wins + losses > battlesPlayed
                 || measuredAnswers < 0 || measuredCorrectAnswers < 0
                 || measuredCorrectAnswers > measuredAnswers
                 || measuredCorrectAnswers > correctAnswers || totalAnswerTimeMillis < 0) {
->>>>>>> Leaderboards/added-UI
             throw new IllegalArgumentException("Invalid battle statistics.");
         }
         this.battlesPlayed = battlesPlayed;
